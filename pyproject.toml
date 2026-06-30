@@ -42,6 +42,9 @@ dependencies = [
     "typing-extensions",
     "uvicorn>=0.35.0",
     "watchfiles>=1.1.1",
+    # pyGal dependencies
+    "langgraph>=0.2,<2.0",
+    "langchain-core>=0.3,<2.0",
     "ahocorasick-rs>=1.0.3",
 ]
 

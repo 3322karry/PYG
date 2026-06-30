@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pyGal — 全真虚拟网友模拟</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f1a; color: #e0e0e8; min-height: 100vh;
+        }
+        .nav {
+            background: #1a1a2e; padding: 16px 24px; display: flex; gap: 24px;
+            border-bottom: 1px solid #2a2a4a; align-items: center;
+        }
+        .nav-brand { font-size: 20px; font-weight: 700; color: #7c7cff; }
+        .nav a {
+            color: #8888aa; text-decoration: none; padding: 8px 12px;
+            border-radius: 6px; transition: all 0.2s; font-size: 14px;
+        }
+        .nav a:hover, .nav a.active { color: #e0e0e8; background: #2a2a4a; }
+        .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+        .card {
+            background: #1a1a2e; border-radius: 12px; padding: 24px;
+            margin-bottom: 16px; border: 1px solid #2a2a4a;
+        }
+        .card h2 { font-size: 18px; margin-bottom: 16px; color: #7c7cff; }
+        .card h3 { font-size: 15px; margin: 12px 0 8px; color: #aaaacc; }
+
+        /* 滑块 */
+        .slider-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+        .slider-row label { width: 100px; font-size: 13px; color: #8888aa; }
+        .slider-row input[type=range] { flex: 1; accent-color: #7c7cff; }
+        .slider-row .value { width: 36px; text-align: right; font-size: 13px; color: #7c7cff; }
+
+        /* MBTI 按钮 */
+        .mbti-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .mbti-btn {
+            padding: 8px 16px; border: 1px solid #2a2a4a; border-radius: 8px;
+            background: transparent; color: #8888aa; cursor: pointer; font-size: 14px;
+            transition: all 0.2s;
+        }
+        .mbti-btn.active { background: #7c7cff; color: #fff; border-color: #7c7cff; }
+
+        /* 参数条 */
+        .param-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+        .param-row label { width: 120px; font-size: 13px; color: #8888aa; }
+        .param-bar { flex: 1; height: 8px; background: #2a2a4a; border-radius: 4px; overflow: hidden; }
+        .param-fill { height: 100%; background: #7c7cff; border-radius: 4px; transition: width 0.3s; }
+        .param-val { width: 40px; text-align: right; font-size: 12px; color: #7c7cff; }
+
+        /* 状态指示 */
+        .status-bar { display: flex; gap: 16px; flex-wrap: wrap; }
+        .status-item {
+            background: #12121e; padding: 12px 16px; border-radius: 8px;
+            border: 1px solid #2a2a4a; flex: 1; min-width: 120px;
+        }
+        .status-item .label { font-size: 12px; color: #8888aa; margin-bottom: 4px; }
+        .status-item .value { font-size: 24px; font-weight: 700; color: #7c7cff; }
+
+        /* 技能列表 */
+        .skill-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; border-bottom: 1px solid #2a2a4a;
+        }
+        .toggle {
+            position: relative; width: 44px; height: 24px;
+            background: #2a2a4a; border-radius: 12px; cursor: pointer; transition: 0.2s;
+        }
+        .toggle.on { background: #7c7cff; }
+        .toggle::after {
+            content: ''; position: absolute; top: 3px; left: 3px;
+            width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: 0.2s;
+        }
+        .toggle.on::after { left: 23px; }
+
+        /* 追踪日志 */
+        .trace-entry {
+            font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px;
+            padding: 8px 12px; border-left: 3px solid #2a2a4a; margin: 4px 0;
+            background: #12121e; border-radius: 0 6px 6px 0;
+        }
+        .trace-entry.perceive { border-color: #4caf50; }
+        .trace-entry.reflect { border-color: #2196f3; }
+        .trace-entry.decide { border-color: #ff9800; }
+        .trace-entry.act { border-color: #e91e63; }
+        .trace-entry.observe { border-color: #9c27b0; }
+        .trace-entry.reflection { border-color: #ffd700; }
+
+        /* 按钮 */
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+            font-size: 14px; transition: 0.2s;
+        }
+        .btn-primary { background: #7c7cff; color: #fff; }
+        .btn-primary:hover { background: #6a6ae8; }
+
+        input[type=text], input[type=password], textarea, select {
+            width: 100%; padding: 8px 12px; background: #12121e;
+            border: 1px solid #2a2a4a; border-radius: 6px; color: #e0e0e8; font-size: 14px;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <span class="nav-brand">pyGal</span>
+        <a href="#" data-page="persona" class="active">人格配置</a>
+        <a href="#" data-page="state">行为状态</a>
+        <a href="#" data-page="skills">技能管理</a>
+        <a href="#" data-page="trace">Agent追踪</a>
+        <a href="#" data-page="init">初始化向导</a>
+    </nav>
+
+    <div class="container">
+        <!-- 人格配置页 -->
+        <div id="page-persona" class="page active">
+            <div class="card">
+                <h2>大五人格 (OCEAN)</h2>
+                <div id="bigfive-sliders"></div>
+            </div>
+            <div class="card">
+                <h2>MBTI 类型</h2>
+                <div class="mbti-group" id="mbti-buttons"></div>
+            </div>
+            <div class="card">
+                <h2>基本信息</h2>
+                <h3>名称</h3>
+                <input type="text" id="persona-name" value="Galatea">
+                <h3>昵称</h3>
+                <input type="text" id="persona-nickname" value="伽拉">
+                <h3>背景故事</h3>
+                <textarea id="persona-background" rows="3"></textarea>
+                <h3>兴趣（逗号分隔）</h3>
+                <input type="text" id="persona-interests" value="">
+            </div>
+            <div class="card">
+                <h2>行为参数预览</h2>
+                <div id="param-preview"></div>
+                <h3>System Prompt 预览</h3>
+                <div id="prompt-preview" style="font-size:12px;color:#8888aa;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
+                <div style="margin-top:16px;">
+                    <button class="btn btn-primary" onclick="savePersona()">保存配置</button>
+                    <button class="btn" style="background:#2a2a4a;color:#e0e0e8" onclick="previewPersona()">实时预览</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 行为状态页 -->
+        <div id="page-state" class="page">
+            <div class="card">
+                <h2>内部状态</h2>
+                <div class="status-bar" id="status-bar">
+                    <div class="status-item"><div class="label">精力值</div><div class="value" id="stat-energy">--</div></div>
+                    <div class="status-item"><div class="label">无聊度</div><div class="value" id="stat-boredom">--</div></div>
+                    <div class="status-item"><div class="label">社交驱动</div><div class="value" id="stat-social">--</div></div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>上次行动</h2>
+                <div id="last-action" style="font-size:14px;color:#aaaacc;">暂无</div>
+            </div>
+            <div class="card">
+                <h2>调度器状态</h2>
+                <div id="scheduler-status" style="font-size:14px;color:#aaaacc;">暂无</div>
+            </div>
+        </div>
+
+        <!-- 技能管理页 -->
+        <div id="page-skills" class="page">
+            <div class="card">
+                <h2>可用技能</h2>
+                <div id="skills-list"></div>
+            </div>
+            <div class="card">
+                <h2>调用历史</h2>
+                <div id="skill-history"></div>
+            </div>
+        </div>
+
+        <!-- Agent追踪页 -->
+        <div id="page-trace" class="page">
+            <div class="card">
+                <h2>推理链追踪</h2>
+                <div id="trace-list"><div style="color:#8888aa;font-size:14px;">暂无追踪记录</div></div>
+            </div>
+            <div class="card">
+                <h2>反思历史</h2>
+                <div id="reflection-list"><div style="color:#8888aa;font-size:14px;">暂无反思记录</div></div>
+            </div>
+        </div>
+
+        <!-- 初始化向导页 -->
+        <div id="page-init" class="page">
+            <div class="card">
+                <h2>Step 1: API 配置</h2>
+                <h3>API Key</h3>
+                <input type="password" id="init-api-key" placeholder="sk-...">
+                <h3>API Base URL</h3>
+                <input type="text" id="init-api-base" placeholder="https://api.deepseek.com/v1">
+                <h3>模型名称</h3>
+                <input type="text" id="init-model" value="deepseek-chat">
+            </div>
+            <div class="card">
+                <h2>Step 2: 捏造人格</h2>
+                <h3>名称 / 昵称</h3>
+                <input type="text" id="init-name" value="Galatea">
+                <input type="text" id="init-nickname" value="伽拉" style="margin-top:8px;">
+                <h3>背景故事</h3>
+                <textarea id="init-background" rows="3" placeholder="描述这个角色的背景..."></textarea>
+                <h3>兴趣（逗号分隔）</h3>
+                <input type="text" id="init-interests" value="编程, 游戏, 猫咪">
+                <p style="margin-top:12px;font-size:13px;color:#8888aa;">大五人格和 MBTI 请到「人格配置」页调整。</p>
+            </div>
+            <div class="card">
+                <h2>Step 3: 选择技能</h2>
+                <div id="init-skills"></div>
+            </div>
+            <button class="btn btn-primary" onclick="submitInit()" style="margin-bottom:16px;">完成初始化</button>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+        let bigfive = { openness: 50, conscientiousness: 50, extraversion: 50, agreeableness: 50, neuroticism: 50 };
+        let mbti = { ei: 'I', sn: 'N', tf: 'F', jp: 'P' };
+        const BF_LABELS = {
+            openness: '开放性', conscientiousness: '尽责性', extraversion: '外向性',
+            agreeableness: '宜人性', neuroticism: '神经质'
+        };
+        const BF_HIGH = {
+            openness: '好奇创造', conscientiousness: '自律有序', extraversion: '社交主动',
+            agreeableness: '温和合作', neuroticism: '敏感焦虑'
+        };
+
+        // ── 导航 ──
+        document.querySelectorAll('.nav a').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                document.querySelectorAll('.nav a').forEach(x => x.classList.remove('active'));
+                document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+                a.classList.add('active');
+                document.getElementById('page-' + a.dataset.page).classList.add('active');
+                loadPage(a.dataset.page);
+            });
+        });
+
+        // ── 人格配置页 ──
+        function renderSliders() {
+            const c = document.getElementById('bigfive-sliders');
+            c.innerHTML = Object.entries(BF_LABELS).map(([k, label]) => `
+                <div class="slider-row">
+                    <label>${label}</label>
+                    <input type="range" min="0" max="100" value="${bigfive[k]}"
+                        oninput="bigfive['${k}']=+this.value; this.nextElementSibling.textContent=this.value; previewPersona()">
+                    <span class="value">${bigfive[k]}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderMbtiButtons() {
+            const groups = [['E','I','ei'], ['S','N','sn'], ['T','F','tf'], ['J','P','jp']];
+            const c = document.getElementById('mbti-buttons');
+            c.innerHTML = groups.map(([a, b, key]) => `
+                <div style="display:flex;gap:4px;">
+                    <button class="mbti-btn ${mbti[key]===a?'active':''}" onclick="mbti['${key}']='${a}'; renderMbtiButtons(); previewPersona()">${a}</button>
+                    <button class="mbti-btn ${mbti[key]===b?'active':''}" onclick="mbti['${key}']='${b}'; renderMbtiButtons(); previewPersona()">${b}</button>
+                </div>
+            `).join('');
+        }
+
+        function renderPreview(data) {
+            if (!data) return;
+            const params = [
+                ['主动行动', data.action_tendency], ['回复意愿', data.reply_willingness],
+                ['话题发起', data.topic_initiative], ['潜水倾向', data.lurk_tendency],
+                ['emoji频率', data.emoji_frequency], ['情绪波动', data.emotional_volatility],
+                ['好奇心', data.curiosity_drive], ['正式度', data.formality],
+            ];
+            document.getElementById('param-preview').innerHTML = params.map(([label, val]) => `
+                <div class="param-row">
+                    <label>${label}</label>
+                    <div class="param-bar"><div class="param-fill" style="width:${val*100}%"></div></div>
+                    <span class="param-val">${val.toFixed(2)}</span>
+                </div>
+            `).join('');
+            document.getElementById('prompt-preview').textContent = data.system_prompt || '';
+        }
+
+        async function previewPersona() {
+            const payload = {
+                name: document.getElementById('persona-name').value,
+                nickname: document.getElementById('persona-nickname').value,
+                big_five: bigfive, mbti: mbti,
+                background: document.getElementById('persona-background').value,
+                interests: document.getElementById('persona-interests').value.split(',').map(s=>s.trim()).filter(Boolean),
+            };
+            try {
+                const r = await fetch(API+'/api/persona/preview', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                renderPreview(await r.json());
+            } catch(e) { /* 静默 */ }
+        }
+
+        async function savePersona() {
+            const payload = {
+                name: document.getElementById('persona-name').value,
+                nickname: document.getElementById('persona-nickname').value,
+                big_five: bigfive, mbti: mbti,
+                background: document.getElementById('persona-background').value,
+                interests: document.getElementById('persona-interests').value.split(',').map(s=>s.trim()).filter(Boolean),
+            };
+            const r = await fetch(API+'/api/persona', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await r.json();
+            alert('保存成功！');
+            renderPreview(data.preview);
+        }
+
+        async function loadPersona() {
+            try {
+                const r = await fetch(API+'/api/persona');
+                const data = await r.json();
+                if (data.persona) {
+                    const p = data.persona;
+                    bigfive = p.big_five || bigfive;
+                    mbti = p.mbti || mbti;
+                    document.getElementById('persona-name').value = p.name || '';
+                    document.getElementById('persona-nickname').value = p.nickname || '';
+                    document.getElementById('persona-background').value = p.background || '';
+                    document.getElementById('persona-interests').value = (p.interests||[]).join(', ');
+                    renderSliders(); renderMbtiButtons();
+                    if (data.preview) renderPreview(data.preview);
+                }
+            } catch(e) { renderSliders(); renderMbtiButtons(); }
+        }
+
+        // ── 状态页 ──
+        async function loadState() {
+            try {
+                const r = await fetch(API+'/api/agent_trace/state');
+                const data = await r.json();
+                const s = data.internal || {};
+                document.getElementById('stat-energy').textContent = (s.energy??0).toFixed(2);
+                document.getElementById('stat-boredom').textContent = (s.boredom??0).toFixed(2);
+                document.getElementById('stat-social').textContent = (s.social_drive??0).toFixed(2);
+            } catch(e) {}
+            try {
+                const r = await fetch(API+'/api/agent_trace');
+                const data = await r.json();
+                const ar = data.action_result;
+                document.getElementById('last-action').innerHTML = ar
+                    ? `行动: <b>${ar.action_type}</b><br>内容: ${ar.content||'(空)'}<br>推理: ${ar.reasoning||''}`
+                    : '暂无';
+            } catch(e) {}
+        }
+
+        // ── 技能页 ──
+        async function loadSkills() {
+            try {
+                const r = await fetch(API+'/api/skills');
+                const data = await r.json();
+                document.getElementById('skills-list').innerHTML = (data.skills||[]).map(s => `
+                    <div class="skill-row">
+                        <div><b>${s.name}</b><br><span style="font-size:12px;color:#8888aa">${s.description||''}</span></div>
+                        <div class="toggle ${s.enabled?'on':''}" onclick="toggleSkill('${s.name}', ${!s.enabled})"></div>
+                    </div>
+                `).join('');
+            } catch(e) {}
+            try {
+                const r = await fetch(API+'/api/skills/history');
+                const data = await r.json();
+                document.getElementById('skill-history').innerHTML = (data.history||[]).map(h => `
+                    <div class="trace-entry">${h.tool}(${JSON.stringify(h.params)}) → ${h.success?'✓':'✗'} ${h.output_preview||h.error||''}</div>
+                `).join('') || '暂无调用记录';
+            } catch(e) {}
+        }
+
+        async function toggleSkill(name, enabled) {
+            await fetch(API+'/api/skills/'+name, {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, enabled})
+            });
+            loadSkills();
+        }
+
+        // ── 追踪页 ──
+        async function loadTrace() {
+            try {
+                const r = await fetch(API+'/api/agent_trace');
+                const data = await r.json();
+                document.getElementById('trace-list').innerHTML = (data.trace||[]).map(t => `
+                    <div class="trace-entry ${t.node}">
+                        <b>[Loop ${t.loop||0}] ${t.node}</b>: ${JSON.stringify(t.data).slice(0,150)}
+                    </div>
+                `).join('') || '暂无追踪记录';
+            } catch(e) {}
+            try {
+                const r = await fetch(API+'/api/agent_trace/reflection');
+                const data = await r.json();
+                document.getElementById('reflection-list').innerHTML = (data.history||[]).map(h => `
+                    <div class="trace-entry reflection">
+                        <b>${h.triggered_by}</b> — 记忆:${h.memory_nodes_count} 印象:${h.impression_updates_count} ${h.success?'✓':'✗'}
+                    </div>
+                `).join('') || '暂无反思记录';
+            } catch(e) {}
+        }
+
+        // ── 初始化页 ──
+        async function loadInit() {
+            try {
+                const r = await fetch(API+'/api/skills');
+                const data = await r.json();
+                document.getElementById('init-skills').innerHTML = (data.skills||[]).map(s => `
+                    <div class="skill-row">
+                        <div><b>${s.name}</b><br><span style="font-size:12px;color:#8888aa">${s.description||''}</span></div>
+                        <input type="checkbox" ${s.enabled?'checked':''} data-skill="${s.name}">
+                    </div>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function submitInit() {
+            const skills = [...document.querySelectorAll('#init-skills input[data-skill]:checked')].map(x=>x.dataset.skill);
+            const payload = {
+                api_key: document.getElementById('init-api-key').value,
+                api_base: document.getElementById('init-api-base').value,
+                model_name: document.getElementById('init-model').value,
+                name: document.getElementById('init-name').value,
+                nickname: document.getElementById('init-nickname').value,
+                background: document.getElementById('init-background').value,
+                interests: document.getElementById('init-interests').value.split(',').map(s=>s.trim()).filter(Boolean),
+                big_five: bigfive, mbti: mbti,
+                enabled_skills: skills,
+            };
+            const r = await fetch(API+'/api/init_guide', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await r.json();
+            alert(data.message || '完成！');
+        }
+
+        // ── 页面加载 ──
+        function loadPage(page) {
+            if (page === 'persona') loadPersona();
+            else if (page === 'state') loadState();
+            else if (page === 'skills') loadSkills();
+            else if (page === 'trace') loadTrace();
+            else if (page === 'init') loadInit();
+        }
+
+        // 初始化
+        renderSliders();
+        renderMbtiButtons();
+        loadPersona();
+    </script>
+</body>
+</html>
